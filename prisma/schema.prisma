@@ -1,0 +1,224 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rol {
+  ADMIN
+  GERENTE
+  ANALISTA
+  VENDEDOR
+  AUDITOR
+}
+
+// ---------------------------------------------------------------------------
+// Modelo de negocio EcoMarket Vital
+// ---------------------------------------------------------------------------
+
+model Sucursal {
+  id        Int        @id @default(autoincrement())
+  nombre    String     @unique
+  ciudad    String
+  direccion String
+  telefono  String?
+  createdAt DateTime   @default(now()) @map("created_at")
+  empleados Empleado[]
+  ventas    Venta[]
+
+  @@map("sucursales")
+}
+
+model Empleado {
+  id           Int       @id @default(autoincrement())
+  nombre       String
+  email        String    @unique
+  departamento String
+  cargo        String
+  salario      Decimal   @db.Decimal(12, 2)
+  sucursalId   Int       @map("sucursal_id")
+  fechaIngreso DateTime  @map("fecha_ingreso")
+  activo       Boolean   @default(true)
+  sucursal     Sucursal  @relation(fields: [sucursalId], references: [id])
+  ventas       Venta[]
+
+  @@index([sucursalId])
+  @@index([departamento])
+  @@map("empleados")
+}
+
+model Producto {
+  id          Int            @id @default(autoincrement())
+  nombre      String
+  categoria   String
+  precio      Decimal        @db.Decimal(12, 2)
+  costo       Decimal        @db.Decimal(12, 2)
+  stock       Int            @default(0)
+  stockMinimo Int            @default(5) @map("stock_minimo")
+  unidad      String         @default("unidad")
+  activo      Boolean        @default(true)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  detalles    DetalleVenta[]
+
+  @@index([categoria])
+  @@index([stock])
+  @@map("productos")
+}
+
+model Cliente {
+  id              Int      @id @default(autoincrement())
+  nombre          String
+  email           String   @unique
+  telefono        String?
+  ciudad          String?
+  fechaRegistro   DateTime @default(now()) @map("fecha_registro")
+  puntosFidelidad Int      @default(0) @map("puntos_fidelidad")
+  activo          Boolean  @default(true)
+  ventas          Venta[]
+
+  @@index([email])
+  @@map("clientes")
+}
+
+model Venta {
+  id         Int            @id @default(autoincrement())
+  clienteId  Int            @map("cliente_id")
+  empleadoId Int            @map("empleado_id")
+  sucursalId Int            @map("sucursal_id")
+  fecha      DateTime       @default(now())
+  metodoPago String         @map("metodo_pago")
+  subtotal   Decimal        @db.Decimal(12, 2)
+  impuesto   Decimal        @db.Decimal(12, 2)
+  total      Decimal        @db.Decimal(12, 2)
+  cliente    Cliente        @relation(fields: [clienteId], references: [id])
+  empleado   Empleado       @relation(fields: [empleadoId], references: [id])
+  sucursal   Sucursal       @relation(fields: [sucursalId], references: [id])
+  detalles   DetalleVenta[]
+
+  @@index([fecha])
+  @@index([clienteId])
+  @@index([sucursalId])
+  @@index([metodoPago])
+  @@map("ventas")
+}
+
+model DetalleVenta {
+  id             Int      @id @default(autoincrement())
+  ventaId        Int      @map("venta_id")
+  productoId     Int      @map("producto_id")
+  cantidad       Int
+  precioUnitario Decimal  @map("precio_unitario") @db.Decimal(12, 2)
+  descuento      Decimal  @default(0) @db.Decimal(12, 2)
+  venta          Venta    @relation(fields: [ventaId], references: [id], onDelete: Cascade)
+  producto       Producto @relation(fields: [productoId], references: [id])
+
+  @@index([ventaId])
+  @@index([productoId])
+  @@map("detalle_ventas")
+}
+
+// ---------------------------------------------------------------------------
+// Seguridad: usuarios, sesiones, MFA, WebAuthn, auditoria
+// ---------------------------------------------------------------------------
+
+model Usuario {
+  id                String              @id @default(cuid())
+  nombre            String
+  email             String              @unique
+  passwordHash      String?             @map("password_hash")
+  rol               Rol                 @default(ANALISTA)
+  activo            Boolean             @default(true)
+  mfaEnabled        Boolean             @default(false) @map("mfa_enabled")
+  mfaSecret         String?             @map("mfa_secret")
+  mfaRecoveryCodes  String[]            @default([]) @map("mfa_recovery_codes")
+  provider          String              @default("credentials")
+  emailVerified     DateTime?           @map("email_verified")
+  lastLogin         DateTime?           @map("last_login")
+  failedAttempts    Int                 @default(0) @map("failed_attempts")
+  lockedUntil       DateTime?           @map("locked_until")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @updatedAt @map("updated_at")
+  sessions          Sesion[]
+  credentials       WebAuthnCredential[]
+  challenges        WebAuthnChallenge[]
+  auditoria         Auditoria[]
+
+  @@map("usuarios")
+}
+
+model Sesion {
+  id          String   @id @default(cuid())
+  usuarioId   String   @map("usuario_id")
+  tokenHash   String   @unique @map("token_hash")
+  mfaVerified Boolean  @default(false) @map("mfa_verified")
+  expiresAt   DateTime @map("expires_at")
+  ip          String?
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at")
+  usuario     Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiresAt])
+  @@map("sesiones")
+}
+
+model WebAuthnCredential {
+  id           String   @id @default(cuid())
+  usuarioId    String   @map("usuario_id")
+  credentialId String   @unique @map("credential_id")
+  publicKey    Bytes    @map("public_key")
+  counter      Int      @default(0)
+  transports   String?
+  deviceType   String?  @map("device_type")
+  backedUp     Boolean  @default(false) @map("backed_up")
+  createdAt    DateTime @default(now()) @map("created_at")
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("webauthn_credentials")
+}
+
+model WebAuthnChallenge {
+  id        String   @id @default(cuid())
+  usuarioId String   @map("usuario_id")
+  challenge String
+  tipo      String
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, tipo])
+  @@map("webauthn_challenges")
+}
+
+model Auditoria {
+  id        Int      @id @default(autoincrement())
+  usuarioId String?  @map("usuario_id")
+  email     String?
+  accion    String
+  detalle   String?
+  ip        String?
+  userAgent String?  @map("user_agent")
+  exito     Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  usuario   Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([accion])
+  @@map("auditoria")
+}
+
+model IntentoLogin {
+  id            String   @id @default(cuid())
+  identificador String
+  ip            String?
+  exito         Boolean
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([identificador, createdAt])
+  @@index([ip, createdAt])
+  @@map("intentos_login")
+}

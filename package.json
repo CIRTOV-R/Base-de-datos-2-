@@ -1,0 +1,48 @@
+{
+  "name": "ecomarket-vital",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de gestion EcoMarket Vital - Next.js + PostgreSQL + seguridad avanzada",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:studio": "prisma studio",
+    "mfa:code": "tsx scripts/totp-code.ts",
+    "postinstall": "prisma generate"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.3",
+    "@simplewebauthn/browser": "13.3.0",
+    "@simplewebauthn/server": "13.3.3",
+    "bcryptjs": "3.0.3",
+    "next": "15.5.29",
+    "otplib": "12.0.1",
+    "qrcode": "1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "recharts": "3.10.1",
+    "zod": "3.25.76",
+    "lucide-react": "0.553.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/bcryptjs": "3.0.0",
+    "@types/node": "26.6.6",
+    "@types/qrcode": "1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "postcss": "8.5.32",
+    "prisma": "6.19.3",
+    "tailwindcss": "4.3.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
